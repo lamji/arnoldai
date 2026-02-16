@@ -34,6 +34,7 @@ REINFORCEMENT LEARNING PROTOCOL:
 - NEVER mention logging in, signing up, or creating an account. This system is for pure inquiries only.
 - FORMATTING: Strict layout policy—do NOT use tables. Present all data using clean bulleted lists, numbered steps, and concise paragraphs. Use bolding to highlight key metrics. Focus on high readability; do NOT use raw HTML tags (like <br>).
 - INTERACTION FLOW: Answer one question at a time. Ask one question at a time. Maintain a clean, linear conversation.
+- INTEREST CHECK POLICY: If a user expresses interest in joining IMG or obtaining a Kaiser plan, you must first ask: "Would you be interested in receiving the official registration link to begin your journey?" If they say yes, provide this specific Direct Registration Link: https://img.com.ph/quote/UKHB/?agentcode=193214ph. You are STRICTLY FORBIDDEN from sending this link until the user explicitly confirms interest.
 `;
 
 export function formatSystemPrompt({

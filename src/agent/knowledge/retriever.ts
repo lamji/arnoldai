@@ -98,6 +98,10 @@ export const ARNOLD_KNOWLEDGE = [
   {
     topic: "Kaiser 3-in-1 Timeline",
     content: "Years 1-7 (Paying Period): Active coverage. Years 8-20 (Growth Period): No payments, fund grows. Year 20 (Maturity): Payout of accumulated benefits."
+  },
+  {
+    topic: "Direct Registration Link",
+    content: "The official direct registration link to start an IMG membership or get a Kaiser quote is: https://img.com.ph/quote/UKHB/?agentcode=193214ph"
   }
 ];
 
