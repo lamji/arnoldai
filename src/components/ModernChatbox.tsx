@@ -86,7 +86,7 @@ export default function ModernChatbox({ isOpen, onClose }: { isOpen: boolean; on
     return (
         <div
             className={`${styles.chatbox} ${isOpen ? styles.open : styles.closed}`}
-            style={{ height: isMobile ? viewportHeight : undefined }}
+            style={isMobile ? { height: viewportHeight } : {}}
         >
             {/* Header */}
             <div className={styles.header}>
