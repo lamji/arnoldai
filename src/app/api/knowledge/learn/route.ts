@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 import clientPromise from "@/agent/lib/mongodb";
 import { getEmbeddings } from "@/agent/lib/embeddings";
+import { isTrainedModeEnabled } from "@/agent/lib/security";
 
 export async function POST(req: Request) {
   try {
+    // 🛡️ Mode Guard: Block if TRAINED_MODE is disabled
+    if (!(await isTrainedModeEnabled())) {
+      return NextResponse.json({ error: "Unauthorized: General learning is currently disabled." }, { status: 403 });
+    }
+
     const { content } = await req.json();
 
     if (!content) {

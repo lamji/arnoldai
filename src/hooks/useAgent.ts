@@ -19,6 +19,7 @@ export function useAgent() {
   const [isTrainedMode, setIsTrainedMode] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [sessionId, setSessionId] = useState<string>("");
+  const [isAuthorized, setIsAuthorized] = useState(false);
 
   // Initialize Session & Lead Tracking
   useEffect(() => {
@@ -28,6 +29,10 @@ export function useAgent() {
       localStorage.setItem("arnold_session_id", sid);
     }
     setSessionId(sid);
+
+    // Check Authorization
+    const token = localStorage.getItem("arnold_auth_token");
+    setIsAuthorized(!!token);
 
     // Capture exit as a lead trigger
     const handleUnload = () => {
@@ -97,12 +102,37 @@ export function useAgent() {
   }, []);
 
   const sendMessage = useCallback(async (input: string) => {
-    console.log(`[useAgent] sendMessage called with input: "${input}"`);
-    console.log(`[useAgent] Current status: ${status}, isBusy: ${isBusy}`);
+    if (!input.trim() || isBusy || status !== "ready") return;
 
-    if (!input.trim() || isBusy || status !== "ready") {
-        console.warn("[useAgent] sendMessage aborted: Check input/busy/status");
+    // --- HANDLE SUDO LOGIN ---
+    if (input.toLowerCase().startsWith("sudo login")) {
+      const parts = input.split(" ");
+      if (parts.length === 3) {
+        const password = parts[2];
+        addMessage("assistant", "🛡️ Initializing administrative authorization check...");
+        
+        try {
+          const res = await fetch("/api/admin/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username: "admin", password })
+          });
+          const data = await res.json();
+          if (data.success) {
+            localStorage.setItem("arnold_auth_token", data.token);
+            setIsAuthorized(true);
+            addMessage("assistant", "✅ Boom! Sentinel Authorization Grade: S. You can now train the AI even if standard mode is locked.");
+          } else {
+            addMessage("assistant", "❌ Authorization Denied. Unauthorized access attempt logged.");
+          }
+        } catch (err) {
+          addMessage("assistant", "❌ Sentinel core error during login. Authorization failed.");
+        }
         return;
+      } else {
+        addMessage("assistant", "🛡️ Usage: sudo login [password]");
+        return;
+      }
     }
 
     const userInput = input.trim();
@@ -196,9 +226,28 @@ export function useAgent() {
       const ruleMatch = assistantReply.match(/\[TRIGGER_SAVE_RULE:([^\]]+)\]/i);
       const saveMatch = assistantReply.match(/\[SAVE_KNOWLEDGE:\s*"?(.*?)"?\]/);
 
-      if (correctionMatch || ruleMatch || saveMatch) {
-        // 1. Strip technical tags from the display content
-        const cleanReply = assistantReply
+        if (correctionMatch || ruleMatch || saveMatch) {
+          const isLearningAllowed = isTrainedMode || isAuthorized;
+
+          if (!isLearningAllowed) {
+            // IGNORE Learning and suggest products instead
+            const cleanReply = assistantReply
+              .replace(/\[TRIGGER_SAVE_CORRECTION:.*?\]/gi, "")
+              .replace(/\[TRIGGER_SAVE_RULE:.*?\]/gi, "")
+              .replace(/\[SAVE_KNOWLEDGE:.*?\]/gi, "")
+              .trim();
+
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantMessageId ? { ...msg, content: cleanReply + "\n\n💡 I apologize, but my learning modules are currently locked. As your Financial Sentinel, I recommend exploring our IMG membership for full wealth optimization!" } : msg
+              )
+            );
+            setSuggestions(["IMG Membership", "Kaiser 3-in-1", "Dental Benefits"]);
+            return;
+          }
+
+          // 1. Strip technical tags from the display content
+          const cleanReply = assistantReply
           .replace(/\[TRIGGER_SAVE_CORRECTION:.*?\]/gi, "")
           .replace(/\[TRIGGER_SAVE_RULE:.*?\]/gi, "")
           .replace(/\[SAVE_KNOWLEDGE:.*?\]/gi, "")
@@ -234,9 +283,13 @@ export function useAgent() {
 
         // 3. Synchronize to Database
         try {
+          const token = localStorage.getItem("arnold_auth_token");
           const res = await fetch(endpoint, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}` 
+            },
             body: JSON.stringify(payload),
           });
           

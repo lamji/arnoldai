@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import clientPromise from "@/agent/lib/mongodb";
 import { getEmbeddings } from "@/agent/lib/embeddings";
-import { isAdmin } from "@/agent/lib/security";
+import { isAdmin, isTrainedModeEnabled } from "@/agent/lib/security";
 
 /**
  * POST /api/admin/sync-ai-knowledge
@@ -12,6 +12,11 @@ import { isAdmin } from "@/agent/lib/security";
  */
 export async function POST(req: Request) {
   try {
+    // 🛡️ Mode Guard: Block if TRAINED_MODE is disabled
+    if (!(await isTrainedModeEnabled())) {
+      return NextResponse.json({ error: "Unauthorized: Knowledge synchronization is currently disabled." }, { status: 403 });
+    }
+
     // 🛡️ Admin Guard: Only allow requests with a valid admin key
     if (!(await isAdmin())) {
       return NextResponse.json({ error: "Unauthorized: Sync restricted to administrators." }, { status: 401 });

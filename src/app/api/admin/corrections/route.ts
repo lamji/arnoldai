@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import clientPromise from "@/agent/lib/mongodb";
 import { getEmbeddings } from "@/agent/lib/embeddings";
-import { isSameOrigin, isAdmin } from "@/agent/lib/security";
+import { isSameOrigin, isAdmin, isTrainedModeEnabled } from "@/agent/lib/security";
 
 /**
  * POST /api/admin/corrections
@@ -13,6 +13,11 @@ import { isSameOrigin, isAdmin } from "@/agent/lib/security";
  */
 export async function POST(req: Request) {
   try {
+    // 🛡️ Mode Guard: Block if TRAINED_MODE is disabled
+    if (!(await isTrainedModeEnabled())) {
+      return NextResponse.json({ error: "Unauthorized: Learning mode is currently disabled." }, { status: 403 });
+    }
+
     // 🛡️ Security Guard: Only allow same-origin requests (from the chat UI)
     // or requests with a valid admin key
     const sameOrigin = await isSameOrigin();

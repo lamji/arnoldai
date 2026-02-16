@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import clientPromise from "@/agent/lib/mongodb";
 import { getEmbeddings } from "@/agent/lib/embeddings";
-import { isSameOrigin, isAdmin } from "@/agent/lib/security";
+import { isSameOrigin, isAdmin, isTrainedModeEnabled } from "@/agent/lib/security";
 
 /**
  * POST /api/admin/rules
@@ -11,6 +11,11 @@ import { isSameOrigin, isAdmin } from "@/agent/lib/security";
  */
 export async function POST(req: Request) {
   try {
+    // 🛡️ Mode Guard: Block if TRAINED_MODE is disabled
+    if (!(await isTrainedModeEnabled())) {
+      return NextResponse.json({ error: "Unauthorized: Rules modification is currently disabled." }, { status: 403 });
+    }
+
     const sameOrigin = await isSameOrigin();
     const authorized = await isAdmin();
 
