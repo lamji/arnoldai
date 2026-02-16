@@ -54,55 +54,62 @@ export default function ModernChatbox({ isOpen, onClose }: { isOpen: boolean; on
     // We no longer return null here to preserve hook state
     // Visibility is now handled by CSS classes in the wrapper
 
-    const [viewportHeight, setViewportHeight] = useState('100vh');
+    const [viewportHeight, setViewportHeight] = useState('600px');
+    const [viewportTop, setViewportTop] = useState<string | undefined>(undefined);
     const [isMobile, setIsMobile] = useState(false);
 
     // Handle mobile keyboard using Visual Viewport API
     useEffect(() => {
         if (typeof window === 'undefined') return;
 
-        setIsMobile(window.innerWidth <= 480);
+        const updateViewport = () => {
+            const mobile = window.innerWidth <= 480;
+            setIsMobile(mobile);
 
-        const handleResize = () => {
-            if (window.innerWidth > 480) {
-                setViewportHeight('600px'); // Desktop height
+            if (!mobile) {
+                setViewportHeight('600px');
+                setViewportTop(undefined);
                 return;
             }
 
             const viewport = window.visualViewport;
             if (viewport) {
                 setViewportHeight(`${viewport.height}px`);
-                // Scroll to bottom when keyboard opens/changes
+                setViewportTop(`${viewport.offsetTop}px`);
+
+                // Keep scroll at bottom
                 setTimeout(scrollToBottom, 50);
-                setTimeout(scrollToBottom, 150); // Second attempt to ensure keyboard is fully up
+                setTimeout(scrollToBottom, 300);
             } else {
-                setViewportHeight(`${window.innerHeight}px`);
+                setViewportHeight('100%');
+                setViewportTop('0px');
             }
         };
 
-        handleResize(); // Initial call
+        updateViewport();
 
         if (window.visualViewport) {
-            window.visualViewport.addEventListener('resize', handleResize);
-            window.visualViewport.addEventListener('scroll', handleResize);
-        } else {
-            window.addEventListener('resize', handleResize);
+            window.visualViewport.addEventListener('resize', updateViewport);
+            window.visualViewport.addEventListener('scroll', updateViewport);
         }
+        window.addEventListener('resize', updateViewport);
 
         return () => {
             if (window.visualViewport) {
-                window.visualViewport.removeEventListener('resize', handleResize);
-                window.visualViewport.removeEventListener('scroll', handleResize);
-            } else {
-                window.removeEventListener('resize', handleResize);
+                window.visualViewport.removeEventListener('resize', updateViewport);
+                window.visualViewport.removeEventListener('scroll', updateViewport);
             }
+            window.removeEventListener('resize', updateViewport);
         };
     }, []);
 
     return (
         <div
             className={`${styles.chatbox} ${isOpen ? styles.open : styles.closed}`}
-            style={{ height: viewportHeight }}
+            style={{
+                height: viewportHeight,
+                top: viewportTop
+            }}
         >
             {/* Header */}
             <div className={styles.header}>
@@ -176,6 +183,14 @@ export default function ModernChatbox({ isOpen, onClose }: { isOpen: boolean; on
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                        onFocus={(e) => {
+                            if (isMobile) {
+                                setTimeout(() => {
+                                    e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    scrollToBottom();
+                                }, 300);
+                            }
+                        }}
                         className={styles.input}
                         disabled={status !== 'ready'}
                     />
