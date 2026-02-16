@@ -17,6 +17,7 @@ export function useAgent() {
   const [isBusy, setIsBusy] = useState(false);
   const [status, setStatus] = useState<"initializing" | "ready" | "error">("initializing");
   const [isTrainedMode, setIsTrainedMode] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
 
   // Initialize RAG and connection on page load
   useEffect(() => {
@@ -136,11 +137,34 @@ export function useAgent() {
         const chunk = decoder.decode(value, { stream: true });
         assistantReply += chunk;
 
+        // Strip tags during streaming for a clean UI
+        const displayContent = assistantReply
+          .replace(/\[(SUGGESTIONS|SAVE_KNOWLEDGE):.*?(\]|(?=$))/gi, "")
+          .trim();
+
         setMessages((prev) =>
           prev.map((msg) =>
-            msg.id === assistantMessageId ? { ...msg, content: assistantReply } : msg
+            msg.id === assistantMessageId ? { ...msg, content: displayContent } : msg
           )
         );
+      }
+
+      // --- PARSE SUGGESTIONS ---
+      const suggestionsMatch = assistantReply.match(/\[SUGGESTIONS:\s*(.*?)\]/i);
+      if (suggestionsMatch) {
+        const rawSuggestions = suggestionsMatch[1];
+        const suggestionsList = rawSuggestions.split(",").map(s => s.trim());
+        setSuggestions(suggestionsList);
+        
+        // Strip the tag from the displayed message
+        const finalCleanReply = assistantReply.replace(/\[SUGGESTIONS:.*?\]/gi, "").trim();
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMessageId ? { ...msg, content: finalCleanReply } : msg
+          )
+        );
+      } else {
+        setSuggestions([]);
       }
 
       // --- SELF-LEARNING LOGIC ---
@@ -187,6 +211,8 @@ export function useAgent() {
     sendMessage,
     isBusy,
     setMessages,
-    status
+    status,
+    suggestions,
+    setSuggestions
   };
 }

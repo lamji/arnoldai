@@ -411,6 +411,42 @@
     display: flex;
     align-items: center;
     gap: 1rem;
+    position: relative;
+}
+
+.suggestionsRow {
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    gap: 0.6rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    background: #ffffff;
+    border-top: 1px solid #f8f8f8;
+    flex-shrink: 0;
+}
+
+.suggestionsRow::-webkit-scrollbar {
+    display: none;
+}
+
+.suggestionChip {
+    padding: 0.4rem 0.8rem;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    color: #4a5568;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.suggestionChip:hover {
+    background: #f8fafc;
+    border-color: #005F02;
+    color: #005F02;
+    transform: translateY(-2px);
 }
 
 .inputWrapper {
@@ -485,32 +521,53 @@
 
     .header {
         flex-shrink: 0;
-        padding: 0.75rem 1rem !important;
+        padding: 0.6rem 1rem !important;
     }
 
     .avatar {
-        width: 36px !important;
-        height: 36px !important;
-        border-radius: 12px !important;
+        width: 32px !important;
+        height: 32px !important;
+        border-radius: 10px !important;
     }
 
     .agentName {
-        font-size: 0.9rem !important;
+        font-size: 0.85rem !important;
     }
 
     .agentStatus {
-        font-size: 0.6rem !important;
+        font-size: 0.55rem !important;
     }
 
     .inputSection {
-        padding: 0.75rem 1rem !important;
+        padding: 0.5rem 0.75rem !important;
         background: #fff;
         border-top: 1px solid #f2f2f2;
         flex-shrink: 0;
     }
 
     .sendBtn {
-        width: 44px;
-        height: 44px;
+        width: 38px;
+        height: 38px;
+    }
+
+    .suggestionsRow {
+        padding: 0.4rem 0.75rem !important;
+        gap: 0.4rem !important;
+    }
+
+    .suggestionChip {
+        padding: 0.2rem 0.5rem !important;
+        font-size: 0.7rem !important;
+        border-radius: 8px !important;
+    }
+
+    .inputWrapper {
+        padding: 0 1rem !important;
+        border-radius: 12px !important;
+    }
+
+    .input {
+        padding: 0.6rem 0 !important;
+        font-size: 0.85rem !important;
     }
 }

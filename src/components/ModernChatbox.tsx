@@ -8,7 +8,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 export default function ModernChatbox({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-    const { messages, sendMessage, isBusy, setMessages, status } = useAgent();
+    const { messages, sendMessage, isBusy, setMessages, status, suggestions, setSuggestions } = useAgent();
     const [input, setInput] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -197,6 +197,25 @@ export default function ModernChatbox({ isOpen, onClose }: { isOpen: boolean; on
                 )}
                 <div ref={messagesEndRef} />
             </div>
+
+            {/* Fixed Suggestions Row - Anchor between messages and input to prevent overlap */}
+            {suggestions.length > 0 && !isBusy && (
+                <div className={styles.suggestionsRow}>
+                    {suggestions.map((s, i) => (
+                        <button
+                            key={i}
+                            className={styles.suggestionChip}
+                            onClick={() => {
+                                setInput(s);
+                                sendMessage(s);
+                                setSuggestions([]);
+                            }}
+                        >
+                            {s}
+                        </button>
+                    ))}
+                </div>
+            )}
 
             {/* Input Section */}
             <div className={styles.inputSection}>

@@ -21,9 +21,13 @@ export async function getEmbeddings(text: string | string[]) {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Voyage AI Error (${response.status}):`, errorText);
-      throw new Error(`Failed to fetch embeddings: ${response.status} ${errorText}`);
+      if (response.status === 429) {
+        console.warn("Sentinel: Voyage AI Rate Limit Exceeded. Falling back to Keyword RAG.");
+      } else {
+        const errorText = await response.text();
+        console.warn(`Sentinel: Voyage AI API Error (${response.status}):`, errorText);
+      }
+      return null;
     }
 
     const data = await response.json();
