@@ -21,8 +21,9 @@ export async function getEmbeddings(text: string | string[]) {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || "Failed to fetch embeddings");
+      const errorText = await response.text();
+      console.error(`Voyage AI Error (${response.status}):`, errorText);
+      throw new Error(`Failed to fetch embeddings: ${response.status} ${errorText}`);
     }
 
     const data = await response.json();

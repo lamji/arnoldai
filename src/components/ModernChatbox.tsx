@@ -149,7 +149,24 @@ export default function ModernChatbox({ isOpen, onClose }: { isOpen: boolean; on
                                 fontFamily: 'inherit',
                                 color: 'inherit'
                             }}>
-                                <ReactMarkdown>
+                                <ReactMarkdown
+                                    remarkPlugins={[remarkGfm]}
+                                    components={{
+                                        a: ({ node, ...props }) => (
+                                            <a
+                                                {...props}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                style={{
+                                                    color: msg.role === 'assistant' ? '#005F02' : '#ffffff',
+                                                    textDecoration: 'underline',
+                                                    fontWeight: '600',
+                                                    wordBreak: 'break-all'
+                                                }}
+                                            />
+                                        )
+                                    }}
+                                >
                                     {msg.content}
                                 </ReactMarkdown>
                             </div>
