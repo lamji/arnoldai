@@ -55,8 +55,25 @@ export default function ModernChatbox({ isOpen, onClose }: { isOpen: boolean; on
     // Visibility is now handled by CSS classes in the wrapper
 
     const [viewportHeight, setViewportHeight] = useState('600px');
-    const [viewportTop, setViewportTop] = useState<string | undefined>(undefined);
     const [isMobile, setIsMobile] = useState(false);
+
+    // Lock body scroll when chat is open
+    useEffect(() => {
+        if (isOpen && window.innerWidth <= 480) {
+            document.body.style.overflow = 'hidden';
+            document.body.style.position = 'fixed';
+            document.body.style.width = '100%';
+        } else {
+            document.body.style.overflow = '';
+            document.body.style.position = '';
+            document.body.style.width = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+            document.body.style.position = '';
+            document.body.style.width = '';
+        };
+    }, [isOpen]);
 
     // Handle mobile keyboard using Visual Viewport API
     useEffect(() => {
@@ -68,21 +85,16 @@ export default function ModernChatbox({ isOpen, onClose }: { isOpen: boolean; on
 
             if (!mobile) {
                 setViewportHeight('600px');
-                setViewportTop(undefined);
                 return;
             }
 
             const viewport = window.visualViewport;
             if (viewport) {
                 setViewportHeight(`${viewport.height}px`);
-                setViewportTop(`${viewport.offsetTop}px`);
-
-                // Keep scroll at bottom
-                setTimeout(scrollToBottom, 50);
-                setTimeout(scrollToBottom, 300);
+                // Force scroll to bottom when keyboard changes
+                setTimeout(scrollToBottom, 100);
             } else {
-                setViewportHeight('100%');
-                setViewportTop('0px');
+                setViewportHeight('100dvh');
             }
         };
 
@@ -90,14 +102,12 @@ export default function ModernChatbox({ isOpen, onClose }: { isOpen: boolean; on
 
         if (window.visualViewport) {
             window.visualViewport.addEventListener('resize', updateViewport);
-            window.visualViewport.addEventListener('scroll', updateViewport);
         }
         window.addEventListener('resize', updateViewport);
 
         return () => {
             if (window.visualViewport) {
                 window.visualViewport.removeEventListener('resize', updateViewport);
-                window.visualViewport.removeEventListener('scroll', updateViewport);
             }
             window.removeEventListener('resize', updateViewport);
         };
@@ -106,10 +116,7 @@ export default function ModernChatbox({ isOpen, onClose }: { isOpen: boolean; on
     return (
         <div
             className={`${styles.chatbox} ${isOpen ? styles.open : styles.closed}`}
-            style={{
-                height: viewportHeight,
-                top: viewportTop
-            }}
+            style={isMobile ? { height: viewportHeight } : {}}
         >
             {/* Header */}
             <div className={styles.header}>
@@ -183,12 +190,9 @@ export default function ModernChatbox({ isOpen, onClose }: { isOpen: boolean; on
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                        onFocus={(e) => {
+                        onFocus={() => {
                             if (isMobile) {
-                                setTimeout(() => {
-                                    e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                    scrollToBottom();
-                                }, 300);
+                                setTimeout(scrollToBottom, 300);
                             }
                         }}
                         className={styles.input}
