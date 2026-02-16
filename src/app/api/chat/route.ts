@@ -24,43 +24,110 @@ async function getEnhancedKnowledge(query: string) {
     const client = await clientPromise;
     const db = client.db("arnold-ai");
 
-    // Atlas Vector Search on the kaiser_knowledge collection
-    const results = await db.collection("kaiser_knowledge").aggregate([
-      {
-        "$vectorSearch": {
-          "index": "vector_index", // Assumes a vector index named 'vector_index' exists
-          "path": "embedding",
-          "queryVector": queryVector[0],
-          "numCandidates": 100,
-          "limit": 3
+    // 2. Perform parallel Vector Searches
+    const [kaiserResults, aiKnowledgeResults] = await Promise.all([
+      // A. Standard Industry Knowledge
+      db.collection("kaiser_knowledge").aggregate([
+        {
+          "$vectorSearch": {
+            "index": "vector_index",
+            "path": "embedding",
+            "queryVector": queryVector[0],
+            "numCandidates": 50,
+            "limit": 3
+          }
+        },
+        {
+          "$project": {
+            "_id": 0,
+            "text": 1,
+            "score": { "$meta": "vectorSearchScore" }
+          }
         }
-      },
-      {
-        "$project": {
-          "_id": 0,
-          "text": 1,
-          "score": { "$meta": "vectorSearchScore" }
-        }
-      }
-    ]).toArray();
+      ]).toArray(),
 
-    if (results.length > 0) {
-      const dbKnowledge = results.map(r => r.text).join("\n\n");
-      // Combine with core base knowledge for maximum stability
-      return `[DATABASE RETRIEVED]: ${dbKnowledge}\n\n[CORE RULES]: ${retrieveKnowledge(query)}`;
+      // B. System Rules & User Corrections (High Priority)
+      db.collection("ai_knowledge_embeddings").aggregate([
+        {
+          "$vectorSearch": {
+            "index": "ai_knowledge_index", // Note: USER must create this index
+            "path": "embedding",
+            "queryVector": queryVector[0],
+            "numCandidates": 50,
+            "limit": 3
+          }
+        },
+        {
+          "$project": {
+            "_id": 0,
+            "text": 1,
+            "sourceType": 1,
+            "score": { "$meta": "vectorSearchScore" }
+          }
+        }
+      ]).toArray()
+    ]);
+
+    let combinedContext = "";
+
+    if (aiKnowledgeResults.length > 0) {
+      combinedContext += "🚨 SYSTEM RULES & RECENT CORRECTIONS:\n";
+      combinedContext += aiKnowledgeResults.map(r => `- ${r.text}`).join("\n");
+      combinedContext += "\n\n";
     }
 
-    return retrieveKnowledge(query);
+    if (kaiserResults.length > 0) {
+      combinedContext += "[DATABASE RETRIEVED]:\n";
+      combinedContext += kaiserResults.map(r => r.text).join("\n\n");
+      combinedContext += "\n\n";
+    }
+
+    // Combine with core base knowledge for maximum stability
+    combinedContext += `[CORE RULES]:\n${retrieveKnowledge(query)}`;
+
+    return combinedContext;
   } catch (err) {
     console.error("RAG Database Error:", err);
     return retrieveKnowledge(query);
   }
 }
 
+import { isSameOrigin } from '@/agent/lib/security';
+import { NextResponse } from 'next/server';
+
 export async function POST(req: Request) {
   try {
-    const { messages } = await req.json();
+    // 🛡️ Security Guard: Only allow same-origin requests (from the official website)
+    if (!(await isSameOrigin())) {
+      return NextResponse.json({ error: "Unauthorized: External AI requests are blocked." }, { status: 401 });
+    }
+
+    const { messages, sessionId, syncOnly } = await req.json();
     const lastUserMessage = messages[messages.length - 1].content;
+
+    // 1. Log Session to Database (For Lead Tracking)
+    if (sessionId) {
+      const client = await clientPromise;
+      const db = client.db("arnold-ai");
+      
+      await db.collection("sessions").updateOne(
+        { sessionId },
+        { 
+          $set: { 
+            messages, 
+            lastActiveAt: new Date(),
+            updatedAt: new Date(),
+            status: 'active'
+          }
+        },
+        { upsert: true }
+      );
+
+      // If this is just a background sync, we're done.
+      if (syncOnly) {
+        return NextResponse.json({ success: true, message: "Session synchronized." });
+      }
+    }
 
     // 1. Server-side RAG
     const knowledge = await getEnhancedKnowledge(lastUserMessage);

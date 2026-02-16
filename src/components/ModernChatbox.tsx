@@ -8,7 +8,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 export default function ModernChatbox({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-    const { messages, sendMessage, isBusy, setMessages, status, suggestions, setSuggestions } = useAgent();
+    const { messages, sendMessage, isBusy, setMessages, status, suggestions, setSuggestions, sessionId } = useAgent();
     const [input, setInput] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -132,7 +132,24 @@ export default function ModernChatbox({ isOpen, onClose }: { isOpen: boolean; on
                         </span>
                     </div>
                 </div>
-                <button onClick={onClose} className={styles.closeBtn}>
+                <button onClick={() => {
+                    // Trigger a final sync on close
+                    if (messages.length > 1) {
+                        fetch("/api/chat", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ messages, sessionId, syncOnly: true }),
+                        }).catch(e => console.warn("Sentinel: Close sync failed", e));
+
+                        // Force lead email immediately
+                        fetch("/api/admin/leads/send", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ sessionId }),
+                        }).catch(e => console.warn("Sentinel: Lead send failed", e));
+                    }
+                    onClose();
+                }} className={styles.closeBtn}>
                     <X size={18} />
                 </button>
             </div>
@@ -206,7 +223,7 @@ export default function ModernChatbox({ isOpen, onClose }: { isOpen: boolean; on
                             key={i}
                             className={styles.suggestionChip}
                             onClick={() => {
-                                setInput(s);
+                                setInput('');
                                 sendMessage(s);
                                 setSuggestions([]);
                             }}

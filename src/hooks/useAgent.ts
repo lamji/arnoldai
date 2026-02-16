@@ -18,6 +18,29 @@ export function useAgent() {
   const [status, setStatus] = useState<"initializing" | "ready" | "error">("initializing");
   const [isTrainedMode, setIsTrainedMode] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [sessionId, setSessionId] = useState<string>("");
+
+  // Initialize Session & Lead Tracking
+  useEffect(() => {
+    let sid = localStorage.getItem("arnold_session_id");
+    if (!sid) {
+      sid = Math.random().toString(36).substring(2, 12);
+      localStorage.setItem("arnold_session_id", sid);
+    }
+    setSessionId(sid);
+
+    // Capture exit as a lead trigger
+    const handleUnload = () => {
+      if (sid) {
+        // Use sendBeacon for reliable exit tracking
+        const data = JSON.stringify({ sessionId: sid });
+        navigator.sendBeacon("/api/admin/leads/send", data);
+      }
+    };
+
+    window.addEventListener("beforeunload", handleUnload);
+    return () => window.removeEventListener("beforeunload", handleUnload);
+  }, []);
 
   // Initialize RAG and connection on page load
   useEffect(() => {
@@ -108,7 +131,8 @@ export function useAgent() {
             { role: "system", content: systemPrompt },
             ...messages.map(m => ({ role: m.role, content: m.content })),
             { role: "user", content: userInput }
-          ]
+          ],
+          sessionId
         }),
       });
 
@@ -167,35 +191,82 @@ export function useAgent() {
         setSuggestions([]);
       }
 
-      // --- SELF-LEARNING LOGIC ---
+      // --- SELF-LEARNING & CORRECTION LOGIC ---
+      const correctionMatch = assistantReply.match(/\[TRIGGER_SAVE_CORRECTION:([^:]+)(?::([^\]]+))?\]/i);
+      const ruleMatch = assistantReply.match(/\[TRIGGER_SAVE_RULE:([^\]]+)\]/i);
       const saveMatch = assistantReply.match(/\[SAVE_KNOWLEDGE:\s*"?(.*?)"?\]/);
-      if (saveMatch) {
-        const learnedContent = saveMatch[1];
-        
-        // 1. Strip the technical tag from the displayed message
-        const cleanReply = assistantReply.replace(/\[SAVE_KNOWLEDGE:.*?\]/g, "").trim();
+
+      if (correctionMatch || ruleMatch || saveMatch) {
+        // 1. Strip technical tags from the display content
+        const cleanReply = assistantReply
+          .replace(/\[TRIGGER_SAVE_CORRECTION:.*?\]/gi, "")
+          .replace(/\[TRIGGER_SAVE_RULE:.*?\]/gi, "")
+          .replace(/\[SAVE_KNOWLEDGE:.*?\]/gi, "")
+          .trim();
+
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === assistantMessageId ? { ...msg, content: cleanReply } : msg
           )
         );
 
-        // 2. Synchronize to Database
+        // 2. Prepare Payload
+        let payload: any = {};
+        let endpoint = "";
+
+        if (correctionMatch) {
+          payload = {
+            correction: correctionMatch[1]?.trim(),
+            originalFact: correctionMatch[2]?.trim(),
+            context: `User correction via chat`
+          };
+          endpoint = "/api/admin/corrections";
+        } else if (ruleMatch) {
+          payload = {
+            rule: ruleMatch[1]?.trim(),
+            importance: "high"
+          };
+          endpoint = "/api/admin/rules";
+        } else if (saveMatch) {
+          payload = { content: saveMatch[1] };
+          endpoint = "/api/knowledge/learn";
+        }
+
+        // 3. Synchronize to Database
         try {
-          const learnRes = await fetch("/api/knowledge/learn", {
+          const res = await fetch(endpoint, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ content: learnedContent }),
+            body: JSON.stringify(payload),
           });
           
-          if (learnRes.ok) {
-            console.log("Sentinel: New knowledge synchronized.");
-            // 3. Trigger socket broadcast
+          if (res.ok) {
+            console.log(`Sentinel: Knowledge updated via ${endpoint}`);
+            // 4. Trigger socket broadcast
             getSocket().emit("knowledge_updated");
           }
-        } catch (learnErr) {
-          console.error("Sentinel learning failure:", learnErr);
+        } catch (err) {
+          console.error("Sentinel learning failure:", err);
         }
+      }
+      
+      // --- SYNC FINAL STATE TO DB (For Lead Tracking) ---
+      try {
+        await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messages: [
+              ...messages.map(m => ({ role: m.role, content: m.content, timestamp: m.timestamp })),
+              { role: "user", content: userInput },
+              { role: "assistant", content: assistantReply, timestamp: formatTime() }
+            ],
+            sessionId,
+            syncOnly: true
+          }),
+        });
+      } catch (syncErr) {
+        console.warn("Sentinel: Final sync failed:", syncErr);
       }
 
     } catch (error) {
@@ -213,6 +284,7 @@ export function useAgent() {
     setMessages,
     status,
     suggestions,
-    setSuggestions
+    setSuggestions,
+    sessionId
   };
 }
