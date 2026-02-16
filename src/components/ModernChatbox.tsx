@@ -54,7 +54,7 @@ export default function ModernChatbox({ isOpen, onClose }: { isOpen: boolean; on
     // We no longer return null here to preserve hook state
     // Visibility is now handled by CSS classes in the wrapper
 
-    const [viewportHeight, setViewportHeight] = useState('100%');
+    const [viewportHeight, setViewportHeight] = useState('100vh');
     const [isMobile, setIsMobile] = useState(false);
 
     // Handle mobile keyboard using Visual Viewport API
@@ -62,31 +62,47 @@ export default function ModernChatbox({ isOpen, onClose }: { isOpen: boolean; on
         if (typeof window === 'undefined') return;
 
         setIsMobile(window.innerWidth <= 480);
-        if (!window.visualViewport) return;
 
         const handleResize = () => {
-            const height = window.visualViewport?.height;
-            if (window.innerWidth <= 480 && height) {
-                setViewportHeight(`${height}px`);
-                // Scroll to bottom when keyboard opens
+            if (window.innerWidth > 480) {
+                setViewportHeight('600px'); // Desktop height
+                return;
+            }
+
+            const viewport = window.visualViewport;
+            if (viewport) {
+                setViewportHeight(`${viewport.height}px`);
+                // Scroll to bottom when keyboard opens/changes
                 setTimeout(scrollToBottom, 50);
+                setTimeout(scrollToBottom, 150); // Second attempt to ensure keyboard is fully up
             } else {
-                setViewportHeight('100%');
+                setViewportHeight(`${window.innerHeight}px`);
             }
         };
 
-        window.visualViewport.addEventListener('resize', handleResize);
-        window.visualViewport.addEventListener('scroll', handleResize);
+        handleResize(); // Initial call
+
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', handleResize);
+            window.visualViewport.addEventListener('scroll', handleResize);
+        } else {
+            window.addEventListener('resize', handleResize);
+        }
+
         return () => {
-            window.visualViewport?.removeEventListener('resize', handleResize);
-            window.visualViewport?.removeEventListener('scroll', handleResize);
+            if (window.visualViewport) {
+                window.visualViewport.removeEventListener('resize', handleResize);
+                window.visualViewport.removeEventListener('scroll', handleResize);
+            } else {
+                window.removeEventListener('resize', handleResize);
+            }
         };
     }, []);
 
     return (
         <div
             className={`${styles.chatbox} ${isOpen ? styles.open : styles.closed}`}
-            style={isMobile ? { height: viewportHeight } : {}}
+            style={{ height: viewportHeight }}
         >
             {/* Header */}
             <div className={styles.header}>
