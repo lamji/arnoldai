@@ -150,6 +150,7 @@ export function useAgent() {
         dynamicContextualRules: classification.dynamicRules.join("\n- "),
         knowledge: "Retrieving...", // Server will override this
         trainedMode: isTrainedMode,
+        isAdmin: isAuthorized
       });
 
       // 3. Call Chat API
