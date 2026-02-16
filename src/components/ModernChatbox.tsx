@@ -54,8 +54,36 @@ export default function ModernChatbox({ isOpen, onClose }: { isOpen: boolean; on
     // We no longer return null here to preserve hook state
     // Visibility is now handled by CSS classes in the wrapper
 
+    const [viewportHeight, setViewportHeight] = useState('100%');
+
+    // Handle mobile keyboard using Visual Viewport API
+    useEffect(() => {
+        if (typeof window === 'undefined' || !window.visualViewport) return;
+
+        const handleResize = () => {
+            const height = window.visualViewport?.height;
+            if (window.innerWidth <= 480 && height) {
+                setViewportHeight(`${height}px`);
+                // Scroll to bottom when keyboard opens
+                setTimeout(scrollToBottom, 50);
+            } else {
+                setViewportHeight('100%');
+            }
+        };
+
+        window.visualViewport.addEventListener('resize', handleResize);
+        window.visualViewport.addEventListener('scroll', handleResize);
+        return () => {
+            window.visualViewport?.removeEventListener('resize', handleResize);
+            window.visualViewport?.removeEventListener('scroll', handleResize);
+        };
+    }, []);
+
     return (
-        <div className={`${styles.chatbox} ${isOpen ? styles.open : styles.closed}`}>
+        <div
+            className={`${styles.chatbox} ${isOpen ? styles.open : styles.closed}`}
+            style={{ height: window.innerWidth <= 480 ? viewportHeight : undefined }}
+        >
             {/* Header */}
             <div className={styles.header}>
                 <div className={styles.agentInfo}>
