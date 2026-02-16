@@ -55,10 +55,14 @@ export default function ModernChatbox({ isOpen, onClose }: { isOpen: boolean; on
     // Visibility is now handled by CSS classes in the wrapper
 
     const [viewportHeight, setViewportHeight] = useState('100%');
+    const [isMobile, setIsMobile] = useState(false);
 
     // Handle mobile keyboard using Visual Viewport API
     useEffect(() => {
-        if (typeof window === 'undefined' || !window.visualViewport) return;
+        if (typeof window === 'undefined') return;
+
+        setIsMobile(window.innerWidth <= 480);
+        if (!window.visualViewport) return;
 
         const handleResize = () => {
             const height = window.visualViewport?.height;
@@ -82,7 +86,7 @@ export default function ModernChatbox({ isOpen, onClose }: { isOpen: boolean; on
     return (
         <div
             className={`${styles.chatbox} ${isOpen ? styles.open : styles.closed}`}
-            style={{ height: window.innerWidth <= 480 ? viewportHeight : undefined }}
+            style={{ height: isMobile ? viewportHeight : undefined }}
         >
             {/* Header */}
             <div className={styles.header}>
